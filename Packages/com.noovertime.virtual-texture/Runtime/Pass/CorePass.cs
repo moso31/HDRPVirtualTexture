@@ -45,11 +45,11 @@ namespace NoOvertime.VirtualTexture
                 enabled = false
             };
             _clearPass = new ClearPass();
-            bool registerBindResourcePass = CustomPassVolume.RegisterUniqueGlobalCustomPass(CustomPassInjectionPoint.BeforeGBuffer, _bindResourcePass, -1);
-            bool registerReallocateVirtualPagePass = CustomPassVolume.RegisterUniqueGlobalCustomPass(CustomPassInjectionPoint.BeforeGBuffer, _reallocateVirtualPagePass);
-            bool registerFeedBackPass = CustomPassVolume.RegisterUniqueGlobalCustomPass(CustomPassInjectionPoint.BeforeGBuffer, _feedBackPass);
-            bool registerRequestAsyncReadBackPass = CustomPassVolume.RegisterUniqueGlobalCustomPass(CustomPassInjectionPoint.BeforeGBuffer, _requestAsyncReadBackPass);
-            bool registerRenderingPagePass = CustomPassVolume.RegisterUniqueGlobalCustomPass(CustomPassInjectionPoint.BeforeGBuffer, _renderingPagePass);
+            bool registerBindResourcePass = CustomPassVolume.RegisterUniqueGlobalCustomPass(CustomPassInjectionPoint.BeforeRendering, _bindResourcePass, -1);
+            bool registerReallocateVirtualPagePass = CustomPassVolume.RegisterUniqueGlobalCustomPass(CustomPassInjectionPoint.BeforeRendering, _reallocateVirtualPagePass);
+            bool registerFeedBackPass = CustomPassVolume.RegisterUniqueGlobalCustomPass(CustomPassInjectionPoint.BeforeRendering, _feedBackPass);
+            bool registerRequestAsyncReadBackPass = CustomPassVolume.RegisterUniqueGlobalCustomPass(CustomPassInjectionPoint.BeforeRendering, _requestAsyncReadBackPass);
+            bool registerRenderingPagePass = CustomPassVolume.RegisterUniqueGlobalCustomPass(CustomPassInjectionPoint.BeforeRendering, _renderingPagePass);
             bool registerClearPass = CustomPassVolume.RegisterUniqueGlobalCustomPass(CustomPassInjectionPoint.AfterOpaqueDepthAndNormal, _clearPass);
             Assert.IsTrue(registerBindResourcePass);
             Assert.IsTrue(registerReallocateVirtualPagePass);
@@ -277,11 +277,11 @@ namespace NoOvertime.VirtualTexture
         public void Dispose()
         {
             _jobHandle.Complete();
-            bool unregisterBindResourcePass = CustomPassVolume.UnregisterGlobalCustomPass(CustomPassInjectionPoint.BeforeGBuffer, _bindResourcePass);
-            bool unregisterReallocateVirtualPagePass = CustomPassVolume.UnregisterGlobalCustomPass(CustomPassInjectionPoint.BeforeGBuffer, _reallocateVirtualPagePass);
-            bool unregisterFeedBackPass = CustomPassVolume.UnregisterGlobalCustomPass(CustomPassInjectionPoint.BeforeGBuffer, _feedBackPass);
-            bool unregisterRequestAsyncReadBackPass = CustomPassVolume.UnregisterGlobalCustomPass(CustomPassInjectionPoint.BeforeGBuffer, _requestAsyncReadBackPass);
-            bool unregisterRenderingPagePass = CustomPassVolume.UnregisterGlobalCustomPass(CustomPassInjectionPoint.BeforeGBuffer, _renderingPagePass);
+            bool unregisterBindResourcePass = CustomPassVolume.UnregisterGlobalCustomPass(CustomPassInjectionPoint.BeforeRendering, _bindResourcePass);
+            bool unregisterReallocateVirtualPagePass = CustomPassVolume.UnregisterGlobalCustomPass(CustomPassInjectionPoint.BeforeRendering, _reallocateVirtualPagePass);
+            bool unregisterFeedBackPass = CustomPassVolume.UnregisterGlobalCustomPass(CustomPassInjectionPoint.BeforeRendering, _feedBackPass);
+            bool unregisterRequestAsyncReadBackPass = CustomPassVolume.UnregisterGlobalCustomPass(CustomPassInjectionPoint.BeforeRendering, _requestAsyncReadBackPass);
+            bool unregisterRenderingPagePass = CustomPassVolume.UnregisterGlobalCustomPass(CustomPassInjectionPoint.BeforeRendering, _renderingPagePass);
             bool unregisterClearPass = CustomPassVolume.UnregisterGlobalCustomPass(CustomPassInjectionPoint.AfterOpaqueDepthAndNormal, _clearPass);
             Assert.IsTrue(unregisterBindResourcePass);
             Assert.IsTrue(unregisterReallocateVirtualPagePass);
@@ -290,7 +290,7 @@ namespace NoOvertime.VirtualTexture
             Assert.IsTrue(unregisterRenderingPagePass);
             Assert.IsTrue(unregisterClearPass);
 #if UNITY_EDITOR
-            CustomPassVolume.UnregisterGlobalCustomPass(CustomPassInjectionPoint.BeforeGBuffer, _bindResourcePass);
+            CustomPassVolume.UnregisterGlobalCustomPass(CustomPassInjectionPoint.BeforeRendering, _bindResourcePass);
 #endif
             _reallocateVirtualPagePass.Dispose();
             _feedBackPass.Dispose();
