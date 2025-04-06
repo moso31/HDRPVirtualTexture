@@ -57,6 +57,12 @@ void UpdateMips(uint3 dispatchThreadId : SV_DispatchThreadID)
 void UpdateMip0(uint3 dispatchThreadId : SV_DispatchThreadID)
 {
     if (dispatchThreadId.x >= _write2IndirectionCount) return;
+    
+    // pageID.xy=indirectTex XY
+    // pageID.z=gpu mip（如果是来自Feedback）或 indirectTex maxMipValue（如果是完全新建sector）
+    // w = slot = PhysicalPageAtlas Tex2DArray的索引
     uint4 pageID2Slot = _write2IndirectionBuffer[dispatchThreadId.x];
+    
+    // 最终indirectTex实际存的是slot，即PhysicalPageAtlas Tex2DArray的索引
     _indirectionTexture0[pageID2Slot.xy] = pageID2Slot.w;
 }

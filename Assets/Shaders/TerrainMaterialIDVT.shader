@@ -321,201 +321,201 @@
         UsePass "Hidden/Nature/Terrain/Utilities/PICKING"
     }
 
-    SubShader
-    {
-        // This tags allow to use the shader replacement features
-        Tags
-        {
-            "RenderPipeline" = "HDRenderPipeline"
-            "RenderType" = "Opaque"
-            "SplatCount" = "8"
-            "MaskMapR" = "Metallic"
-            "MaskMapG" = "AO"
-            "MaskMapB" = "Height"
-            "MaskMapA" = "Smoothness"
-            "DiffuseA" = "Smoothness (becomes Density when Mask map is assigned)"   // when MaskMap is disabled
-            "DiffuseA_MaskMapUsed" = "Density"                                      // when MaskMap is enabled
-            "TerrainCompatible" = "True"
-        }
+    // SubShader
+    // {
+    //     // This tags allow to use the shader replacement features
+    //     Tags
+    //     {
+    //         "RenderPipeline" = "HDRenderPipeline"
+    //         "RenderType" = "Opaque"
+    //         "SplatCount" = "8"
+    //         "MaskMapR" = "Metallic"
+    //         "MaskMapG" = "AO"
+    //         "MaskMapB" = "Height"
+    //         "MaskMapA" = "Smoothness"
+    //         "DiffuseA" = "Smoothness (becomes Density when Mask map is assigned)"   // when MaskMap is disabled
+    //         "DiffuseA_MaskMapUsed" = "Density"                                      // when MaskMap is enabled
+    //         "TerrainCompatible" = "True"
+    //     }
 
-        Pass
-        {
-            Name "IndirectDXR"
-            Tags{ "LightMode" = "IndirectDXR" }
+    //     Pass
+    //     {
+    //         Name "IndirectDXR"
+    //         Tags{ "LightMode" = "IndirectDXR" }
 
-            HLSLPROGRAM
+    //         HLSLPROGRAM
 
-            #pragma only_renderers d3d11 xboxseries ps5
-            #pragma raytracing surface_shader
+    //         #pragma only_renderers d3d11 xboxseries ps5
+    //         #pragma raytracing surface_shader
 
-            #pragma multi_compile _ DEBUG_DISPLAY
-            #pragma multi_compile _ LIGHTMAP_ON
-            #pragma multi_compile _ DYNAMICLIGHTMAP_ON
-            #pragma multi_compile _ PROBE_VOLUMES_L1 PROBE_VOLUMES_L2
-            #pragma multi_compile _ DIRLIGHTMAP_COMBINED
+    //         #pragma multi_compile _ DEBUG_DISPLAY
+    //         #pragma multi_compile _ LIGHTMAP_ON
+    //         #pragma multi_compile _ DYNAMICLIGHTMAP_ON
+    //         #pragma multi_compile _ PROBE_VOLUMES_L1 PROBE_VOLUMES_L2
+    //         #pragma multi_compile _ DIRLIGHTMAP_COMBINED
 
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/FragInputs.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPass.cs.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/FragInputs.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPass.cs.hlsl"
 
-            #define SHADERPASS SHADERPASS_RAYTRACING_INDIRECT
-            // multi compile that allows us to strip the recursive code
-            #pragma multi_compile _ MULTI_BOUNCE_INDIRECT
+    //         #define SHADERPASS SHADERPASS_RAYTRACING_INDIRECT
+    //         // multi compile that allows us to strip the recursive code
+    //         #pragma multi_compile _ MULTI_BOUNCE_INDIRECT
 
-            #define SHADOW_LOW
+    //         #define SHADOW_LOW
 
-            #include "TerrainMaterialIDTemplateRayTracing.hlsl"
-            #include "TerrainLit_MaterialID.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassRaytracingIndirect.hlsl"
-            ENDHLSL
-        }
+    //         #include "TerrainMaterialIDTemplateRayTracing.hlsl"
+    //         #include "TerrainLit_MaterialID.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassRaytracingIndirect.hlsl"
+    //         ENDHLSL
+    //     }
 
-        Pass
-        {
-            Name "ForwardDXR"
-            Tags{ "LightMode" = "ForwardDXR" }
+    //     Pass
+    //     {
+    //         Name "ForwardDXR"
+    //         Tags{ "LightMode" = "ForwardDXR" }
 
-            HLSLPROGRAM
-            #pragma only_renderers d3d11 xboxseries ps5
-            #pragma raytracing surface_shader
+    //         HLSLPROGRAM
+    //         #pragma only_renderers d3d11 xboxseries ps5
+    //         #pragma raytracing surface_shader
 
-            #pragma multi_compile _ DEBUG_DISPLAY
-            #pragma multi_compile _ LIGHTMAP_ON
-            #pragma multi_compile _ DYNAMICLIGHTMAP_ON
-            #pragma multi_compile _ PROBE_VOLUMES_L1 PROBE_VOLUMES_L2
-            #pragma multi_compile _ DIRLIGHTMAP_COMBINED
+    //         #pragma multi_compile _ DEBUG_DISPLAY
+    //         #pragma multi_compile _ LIGHTMAP_ON
+    //         #pragma multi_compile _ DYNAMICLIGHTMAP_ON
+    //         #pragma multi_compile _ PROBE_VOLUMES_L1 PROBE_VOLUMES_L2
+    //         #pragma multi_compile _ DIRLIGHTMAP_COMBINED
 
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/FragInputs.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPass.cs.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/FragInputs.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPass.cs.hlsl"
 
-            #define SHADERPASS SHADERPASS_RAYTRACING_FORWARD
-            // multi compile that allows us to strip the recursive code
+    //         #define SHADERPASS SHADERPASS_RAYTRACING_FORWARD
+    //         // multi compile that allows us to strip the recursive code
 
-            #define SHADOW_LOW
+    //         #define SHADOW_LOW
 
-            #include "TerrainMaterialIDTemplateRayTracing.hlsl"
-            #include "TerrainLit_MaterialID.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassRaytracingForward.hlsl"
-            ENDHLSL
-        }
+    //         #include "TerrainMaterialIDTemplateRayTracing.hlsl"
+    //         #include "TerrainLit_MaterialID.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassRaytracingForward.hlsl"
+    //         ENDHLSL
+    //     }
 
-        Pass
-        {
-            Name "GBufferDXR"
-            Tags{ "LightMode" = "GBufferDXR" }
+    //     Pass
+    //     {
+    //         Name "GBufferDXR"
+    //         Tags{ "LightMode" = "GBufferDXR" }
 
-            HLSLPROGRAM
+    //         HLSLPROGRAM
 
-            #pragma only_renderers d3d11 xboxseries ps5
-            #pragma raytracing surface_shader
+    //         #pragma only_renderers d3d11 xboxseries ps5
+    //         #pragma raytracing surface_shader
 
-            #pragma multi_compile _ DEBUG_DISPLAY
-            #pragma multi_compile _ LIGHTMAP_ON
-            #pragma multi_compile _ DYNAMICLIGHTMAP_ON
-            #pragma multi_compile _ PROBE_VOLUMES_L1 PROBE_VOLUMES_L2
-            #pragma multi_compile _ DIRLIGHTMAP_COMBINED
+    //         #pragma multi_compile _ DEBUG_DISPLAY
+    //         #pragma multi_compile _ LIGHTMAP_ON
+    //         #pragma multi_compile _ DYNAMICLIGHTMAP_ON
+    //         #pragma multi_compile _ PROBE_VOLUMES_L1 PROBE_VOLUMES_L2
+    //         #pragma multi_compile _ DIRLIGHTMAP_COMBINED
 
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/FragInputs.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPass.cs.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/FragInputs.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPass.cs.hlsl"
 
-            #define SHADERPASS SHADERPASS_RAYTRACING_GBUFFER
-            #pragma multi_compile _ MINIMAL_GBUFFER
-            #include "TerrainMaterialIDTemplateRayTracing.hlsl"
-            #include "TerrainLit_MaterialID.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassRaytracingGBuffer.hlsl"
-            ENDHLSL
-        }
+    //         #define SHADERPASS SHADERPASS_RAYTRACING_GBUFFER
+    //         #pragma multi_compile _ MINIMAL_GBUFFER
+    //         #include "TerrainMaterialIDTemplateRayTracing.hlsl"
+    //         #include "TerrainLit_MaterialID.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassRaytracingGBuffer.hlsl"
+    //         ENDHLSL
+    //     }
 
-        Pass
-        {
-            Name "VisibilityDXR"
-            Tags{ "LightMode" = "VisibilityDXR" }
+    //     Pass
+    //     {
+    //         Name "VisibilityDXR"
+    //         Tags{ "LightMode" = "VisibilityDXR" }
 
-            HLSLPROGRAM
+    //         HLSLPROGRAM
 
-            #pragma only_renderers d3d11 xboxseries ps5
-            #pragma raytracing surface_shader
+    //         #pragma only_renderers d3d11 xboxseries ps5
+    //         #pragma raytracing surface_shader
 
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/FragInputs.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPass.cs.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/FragInputs.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPass.cs.hlsl"
 
-            #define SHADERPASS SHADERPASS_RAYTRACING_VISIBILITY
-            #pragma multi_compile _ TRANSPARENT_COLOR_SHADOW
-            #include "TerrainMaterialIDTemplateRayTracing.hlsl"
-            #include "TerrainLit_MaterialID.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassRaytracingVisibility.hlsl"
-            ENDHLSL
-        }
+    //         #define SHADERPASS SHADERPASS_RAYTRACING_VISIBILITY
+    //         #pragma multi_compile _ TRANSPARENT_COLOR_SHADOW
+    //         #include "TerrainMaterialIDTemplateRayTracing.hlsl"
+    //         #include "TerrainLit_MaterialID.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassRaytracingVisibility.hlsl"
+    //         ENDHLSL
+    //     }
 
-        Pass
-        {
-            Name "DebugDXR"
-            Tags{ "LightMode" = "DebugDXR" }
+    //     Pass
+    //     {
+    //         Name "DebugDXR"
+    //         Tags{ "LightMode" = "DebugDXR" }
 
-            HLSLPROGRAM
-            #pragma only_renderers d3d11 xboxseries ps5
-            #pragma raytracing surface_shader
+    //         HLSLPROGRAM
+    //         #pragma only_renderers d3d11 xboxseries ps5
+    //         #pragma raytracing surface_shader
 
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/FragInputs.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPass.cs.hlsl"
-            #define SHADERPASS SHADERPASS_RAYTRACING_DEBUG
+    //         #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/FragInputs.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPass.cs.hlsl"
+    //         #define SHADERPASS SHADERPASS_RAYTRACING_DEBUG
 
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/Raytracing/Shaders/RaytracingMacros.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/Raytracing/Shaders/RaytracingMacros.hlsl"
 
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/Raytracing/Shaders/ShaderVariablesRaytracing.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Material.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/Raytracing/Shaders/RaytracingIntersection.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/Raytracing/Shaders/ShaderVariablesRaytracing.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/Material/Material.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/Raytracing/Shaders/RaytracingIntersection.hlsl"
 
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/Raytracing/Shaders/RayTracingCommon.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassRayTracingDebug.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/Raytracing/Shaders/RayTracingCommon.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassRayTracingDebug.hlsl"
 
-            ENDHLSL
-        }
+    //         ENDHLSL
+    //     }
 
-        Pass
-        {
-            Name "PathTracingDXR"
-            Tags{ "LightMode" = "PathTracingDXR" }
+    //     Pass
+    //     {
+    //         Name "PathTracingDXR"
+    //         Tags{ "LightMode" = "PathTracingDXR" }
 
-            HLSLPROGRAM
-            #pragma only_renderers d3d11 xboxseries ps5
-            #pragma raytracing surface_shader
+    //         HLSLPROGRAM
+    //         #pragma only_renderers d3d11 xboxseries ps5
+    //         #pragma raytracing surface_shader
 
-            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/FragInputs.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPass.cs.hlsl"
-            #define SHADERPASS SHADERPASS_PATH_TRACING
+    //         #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/FragInputs.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPass.cs.hlsl"
+    //         #define SHADERPASS SHADERPASS_PATH_TRACING
 
-            #pragma multi_compile DECALS_OFF DECALS_3RT DECALS_4RT
-            #pragma multi_compile _ DECAL_SURFACE_GRADIENT
+    //         #pragma multi_compile DECALS_OFF DECALS_3RT DECALS_4RT
+    //         #pragma multi_compile _ DECAL_SURFACE_GRADIENT
 
-            #pragma multi_compile _ DEBUG_DISPLAY
-            #pragma multi_compile _ SENSORSDK_OVERRIDE_REFLECTANCE
+    //         #pragma multi_compile _ DEBUG_DISPLAY
+    //         #pragma multi_compile _ SENSORSDK_OVERRIDE_REFLECTANCE
 
-            #ifdef SENSORSDK_OVERRIDE_REFLECTANCE
-                #define SENSORSDK_ENABLE_LIDAR
-            #endif
+    //         #ifdef SENSORSDK_OVERRIDE_REFLECTANCE
+    //             #define SENSORSDK_ENABLE_LIDAR
+    //         #endif
 
-            // This is just because it needs to be defined, shadow maps are not used.
-            #define SHADOW_LOW
+    //         // This is just because it needs to be defined, shadow maps are not used.
+    //         #define SHADOW_LOW
 
-            // For all single-sided, refractive materials, we want to force a thin refraction model.
-            #if !defined(_DOUBLESIDED_ON) && (defined(_REFRACTION_PLANE) || defined(_REFRACTION_SPHERE))
-                #undef  _REFRACTION_PLANE
-                #undef  _REFRACTION_SPHERE
-                #define _REFRACTION_THIN
-            #endif
+    //         // For all single-sided, refractive materials, we want to force a thin refraction model.
+    //         #if !defined(_DOUBLESIDED_ON) && (defined(_REFRACTION_PLANE) || defined(_REFRACTION_SPHERE))
+    //             #undef  _REFRACTION_PLANE
+    //             #undef  _REFRACTION_SPHERE
+    //             #define _REFRACTION_THIN
+    //         #endif
 
-            #include "TerrainMaterialIDTemplateRayTracing.hlsl"
-            #include "TerrainLit_MaterialID.hlsl"
-            #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassPathTracing.hlsl"
-            ENDHLSL
-        }
-    }
+    //         #include "TerrainMaterialIDTemplateRayTracing.hlsl"
+    //         #include "TerrainLit_MaterialID.hlsl"
+    //         #include "Packages/com.unity.render-pipelines.high-definition/Runtime/RenderPipeline/ShaderPass/ShaderPassPathTracing.hlsl"
+    //         ENDHLSL
+    //     }
+    // }
 
     Dependency "BaseMapShader" = "Hidden/HDRP/TerrainLit_Basemap"
     Dependency "BaseMapGenShader" = "Hidden/HDRP/TerrainLit_BasemapGen"

@@ -7,6 +7,7 @@
 #include "ShaderConstant.cs.hlsl"
 
 RWTexture2D<uint> PageIDOutputTexture : register(u7);
+// Sector2VirtualImageInfoTexture 记录了大世界Sector的VirtImageInfo之间的映射
 Texture2D<uint> Sector2VirtualImageInfoTexture;
 Texture2D<uint> IndirectionTexture;
 Texture2DArray<float4> PhysicalPageBaseMapAtlas;
@@ -86,22 +87,31 @@ float MipLevelAnisotropy(float2 uv, float size)
 
 uint2 GetVirtualPageID(float3 positionWS, out float mip, out uint virtualPageSizeLog)
 {
-    // 对于virtual image size 65536的sector来说, 这个sector上有65536/PAGE_SIZE(256)个page, virtual page size = 256
-    // 同理, 对于virtual image size 1024的sector来说, 这个sector上只有1024/PAGE_SIZE(4)个page, virtual page size = 4
-    // 获取当前sector的imageInfo, 12bit virtual page x, 12bit virtual page z, 8bit virtual page log2(size)
-    // indirection texture上每个pixel对应一个physical page, 对应(1024x1024)这么多个page
-    // feedback输出的pageID其实是indirection texture的texel position
-    const uint packedImageInfo = LOAD_TEXTURE2D(Sector2VirtualImageInfoTexture, positionWS.xz / 64);
+    // 读取 sector2VirtImage 纹理，基于sector索引
+    const uint packedImageInfo = LOAD_TEXTURE2D(Sector2VirtualImageInfoTexture, positionWS.xz / 64);  // 世界坐标/64 就是 sector 的坐标
+
+    // 解码，读出imageinfo
     uint3 imageInfo = uint3(packedImageInfo >> 20, (packedImageInfo >> 8) & 0xFFF, packedImageInfo & 0xF);
     virtualPageSizeLog = imageInfo.z;
+
+    // 基于当前像素的ddxy，推导一个GPU mip等级
+    // note：这里推导的Mip等级 和 sector2VirtImage 在当前区域存储的mip等级（即virtualPageSizeLog） 并不一致
+    //      前者是当前像素的GPU mip；后者是当前像素-sector对应的indirectTex mip0的大小
     mip = MipLevelAnisotropy(positionWS.xz, MAX_TEXEL_DENSITY) - MAX_VIRTUAL_PAGE_SIZE_SHIFT + virtualPageSizeLog;
     mip = clamp(mip, 0, virtualPageSizeLog);
-    // (positionWS.xz % SECTOR_SIZE) 是先定位到相对于当前Sector的local坐标
+
+    // 获取世界坐标在sector内的相对位置
     const float2 sectorPosition = positionWS.xz % SECTOR_SIZE;
-    // * (1 << imageInfo.z) >> SECTOR_SIZE_SHIFT 是计算当前Sector上每一米有多少个virtual page(对应多少个physical page)
-    const uint2 virtualImageUV = ((uint2)(sectorPosition * (1 << virtualPageSizeLog))) >> SECTOR_SIZE_SHIFT;
-    // 再加上当前virtual image在atlas中的偏移和mip
+
+    // 基于相对位置，推导出在 VirtImage 上的相对坐标
+    // 这里虽然写的是UV，但实际范围是
+    const uint2 virtualImageUV = ((uint2)(sectorPosition * (1 << virtualPageSizeLog))) >> SECTOR_SIZE_SHIFT; 
+
+    // 再加上imageinfo的偏移，然后>>到指定mip
     uint2 virtualPageID = (virtualImageUV + imageInfo.xy) >> ((uint)mip);
+
+    // 这样就得到了在indirectTex上的坐标（int2=像素位置，即uv*indirectTexSize）
+    // note：注意这里 virtualPageID 返回的是 ** indirectTex 当前mip ** 等级的坐标，而不是indirectTex的mip0坐标
     return virtualPageID;
 }
 
@@ -110,8 +120,11 @@ bool MatchMipLevel(uint2 virtualPageID, int virtualPageSizeLog, inout int mip, o
     UNITY_UNROLLX(MAX_VIRTUAL_PAGE_SIZE_SHIFT)
     while (true)
     {
+        // 在indirectTex上直接采样。如 UpdateIndirectionTexture.compute 中所示，最终将返回PhysicalPageAtlas Tex2DArray的Index
         slot = LOAD_TEXTURE2D_LOD(IndirectionTexture, virtualPageID, mip);
-        if (slot < MAX_PHYSICAL_PAGE_COUNT) return true;
+        if (slot < MAX_PHYSICAL_PAGE_COUNT) return true; // 如果找到对应的PhysPage就直接返回
+
+        // 如果没有找到，继续进一步寻找子mip
         virtualPageID = virtualPageID >> 1;
         mip++;
         if (mip > virtualPageSizeLog) break;
@@ -121,12 +134,20 @@ bool MatchMipLevel(uint2 virtualPageID, int virtualPageSizeLog, inout int mip, o
 
 bool SampleVT(float3 positionRWS, out float4 baseMap, out float4 maskMap)
 {
-    float3 positionWS = GetAbsolutePositionWS(positionRWS);
+    float3 positionWS = GetAbsolutePositionWS(positionRWS); 
     int mip;
     uint virtualPageSizeLog;
-    const uint2 virtualPageID = GetVirtualPageID(positionWS, mip, virtualPageSizeLog);
+    // 读当前位置的virtualPageID.
+    // virtualPageID: indirectTex mip i（当前像素对应mip等级）的坐标
+    // mip: indirectTex GPU mip
+    // virtualPageSizeLog: indirectTex mipCount（也可视作mip0的大小）
+    const uint2 virtualPageID = GetVirtualPageID(positionWS, mip, virtualPageSizeLog); 
     int slot;
+
+    // 寻找对应的PhysicalPage Tex2DArray slot
     const bool match = MatchMipLevel(virtualPageID, virtualPageSizeLog, mip, slot);
+
+    // 如果找到slot，基于世界坐标和slot进行采样，计算出最终的baseMap和maskMap颜色
     if (match)
     {
         const uint texelPerMeter = 1 << virtualPageSizeLog - mip;
@@ -155,20 +176,34 @@ bool SampleVT(float3 positionRWS, out float4 baseMap, out float4 maskMap)
 void OutputPageID(float3 positionWS, uint2 positionSS)
 {
     uint mip, virtualPageSizeLog;
+
+    // 获取virtualPageID  = indirectTex mip i（当前像素对应mip等级）的坐标，同时也记录当前像素mip=mip，当前像素对应的indirectTex mipCount=virtualPageSizeLog （也可视作mip0的大小）
     uint2 virtualPageID = GetVirtualPageID(positionWS, mip, virtualPageSizeLog);
+
+    // 重新encode
+    // 这次encode的数据就是“活的”（由GPU返回得到的）。
     const uint packed = (virtualPageID.x << 20) + (virtualPageID.y << 8) + ((mip & 0xF) << 4) + virtualPageSizeLog;
-    uint2 downscaleSS = positionSS % PAGE_ID_DOWNSCALE;
+
+    uint2 downscaleSS = positionSS % PAGE_ID_DOWNSCALE; // 获取屏幕空间坐标，基于DitherXY（详见FeedbackPass）抖动采样
     if (downscaleSS.x == VirtualDitherX && downscaleSS.y == VirtualDitherY)
     {
-        // size - mip < 0 的话表示这个page是废弃的(根本无法被indirection texture表达)
+        // 【为啥会有个virtualPageSizeLog == 0的条件？如果mip == 0，岂不是没法正常工作？】
         if (virtualPageSizeLog == 0 || mip > virtualPageSizeLog)
         {
+            // virtualPageSizeLog == i 的时候 说明对应sector在indirect Tex的mip0上只占i*i像素
+            // 这种情况下，mip不可能>i，因为indirect Tex的mip i+1等级及以上根本无法表达这个sector（小于1px）。
+            
+            // 所以如果 mip > virtualPageSizeLog 实际上不会拿到任何有效值。
             PageIDOutputTexture[positionSS.xy / PAGE_ID_DOWNSCALE] = 0;
         }
-        else
+        else 
         {
+            // 更新 Feedback 回读 RT，大小为1/8分辨率
+            // 在这里存储当前像素的packed信息，其格式和Sector2VirtualImageInfoTexture一致
             PageIDOutputTexture[positionSS.xy / PAGE_ID_DOWNSCALE] = packed;
         }
     }
+
+    // PS：这个时间点通常是在GBuffer，在渲染纹理的阶段【有没有可能其他ShaderLab Pass也会触发？】
 }
 #endif

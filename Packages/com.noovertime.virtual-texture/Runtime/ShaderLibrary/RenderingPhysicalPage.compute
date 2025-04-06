@@ -16,7 +16,7 @@ StructuredBuffer<uint> _params; // sector x/y, localPageID x/y, mip, sizeLog
 RWTexture2DArray<float4> _physicalPageBaseMapAtlas;
 RWTexture2DArray<float4> _physicalPageMaskMapAtlas;
 
-Texture2D<unorm float> _SplatMap;
+Texture2D<unorm float> _SplatMap; // 一张R8纹理
 TEXTURE2D_ARRAY(_BaseMapArray); // share sampler with mask map array
 TEXTURE2D_ARRAY(_MaskMapArray);
 SAMPLER(sampler_linear_repeat_aniso8);
@@ -32,21 +32,33 @@ void KMain(uint3 dispatchThreadId : SV_DispatchThreadID)
      * bias = physical page offset – virtual page offset * scale
      * physical uv = virtual uv * scale + bias
      */
-    const uint mip = _params[4];
-    const uint virtualPageSizeLog = _params[5];
-    const uint2 sector = uint2(_params[0], _params[1]);
-    const uint2 localPageID = uint2(_params[2], _params[3]); // sector中的第几个page
-    const uint2 sectorPosition = sector * 64u;
+    const uint mip = _params[4]; // GPU mip
+    const uint virtualPageSizeLog = _params[5]; // indirect Tex0 max mip value
+    const uint2 sector = uint2(_params[0], _params[1]); // sector坐标
+    const uint2 localPageID = uint2(_params[2], _params[3]); // sector中的第几个page（in indirectTex Mip0）
+    const uint2 sectorPosition = sector * 64u; // sector对应的实际地形（世界）位置
+    
     // sizeLog 65536对64米, 256per page, mip0且_params[5]==8的情况
     // TODO: mip 可能需要小于 sizeLog
+    
+    // indirectTex mip0 像素数
     const float2 indirectionSize = (1 << (virtualPageSizeLog - mip) ) / SECTOR_SIZE; // sector一共有这么多个page(每米)
+    
+    // 对应mip等级下的page的位置
     const float2 pagePosition = (localPageID >> mip) / indirectionSize; // 当前page相对于sector的位置
+    
+    // 当前像素在page上的位置
     const float2 pixelPosition = ((float2)dispatchThreadId.xy - BORDER_SIZE) / PAGE_SIZE / indirectionSize; // 当前pixel相对于page的位置
-    const float2 positionWS = sectorPosition + pagePosition + pixelPosition;
+    const float2 positionWS = sectorPosition + pagePosition + pixelPosition; // sector的世界位置+page相对sector的位置+pixel相对page的位置 = pixel的世界位置 = posWS。
 
     float4 slot;
     float2 vertexPosX, vertexPosY, vertexPosZ, vertexPosW;
+    
+    // 寻找posWS最近的四个整数像素点vertexPosXYZW，并统计这四个像素点的权重
     float4 weight = RectGrid(positionWS, vertexPosX, vertexPosY, vertexPosZ, vertexPosW);
+    
+    // 对这四个位置的像素，在SplatMap上进行采样
+    // SplatMap纹理所记录的，其实是自己所使用的预设Tex2D的纹理编号
     slot.x = LOAD_TEXTURE2D_LOD(_SplatMap, vertexPosX, 0).r * 255.5;
     slot.y = LOAD_TEXTURE2D_LOD(_SplatMap, vertexPosY, 0).r * 255.5;
     slot.z = LOAD_TEXTURE2D_LOD(_SplatMap, vertexPosZ, 0).r * 255.5;
@@ -68,11 +80,16 @@ void SampleMaterialID(TEXTURE2D_ARRAY(_BaseMapArray), TEXTURE2D_ARRAY(_MaskMapAr
 {
     float4 baseMap0, baseMap1, baseMap2, baseMap3;
     float4 maskMap0, maskMap1, maskMap2, maskMap3;
+
+    // 做四轮采样，取baseMapAtlas/maksMapAtlas 在当前位置最近的四个实际纹理像素
     SampleMaterialIDTextureArrayLOD(_BaseMapArray, _MaskMapArray, sampler_common, uv, slot.x, mip, baseMap0, maskMap0);
     SampleMaterialIDTextureArrayLOD(_BaseMapArray, _MaskMapArray, sampler_common, uv, slot.y, mip, baseMap1, maskMap1);
     SampleMaterialIDTextureArrayLOD(_BaseMapArray, _MaskMapArray, sampler_common, uv, slot.z, mip, baseMap2, maskMap2);
     SampleMaterialIDTextureArrayLOD(_BaseMapArray, _MaskMapArray, sampler_common, uv, slot.w, mip, baseMap3, maskMap3);
     weight = CalculateBlendWeight(weight, abs(float4(baseMap0.a, baseMap1.a, baseMap2.a, baseMap3.a)) + HALF_EPS, 1);
+
+    // 然后基于某种方法对它们混合插值（方法我是懒得看了）
+    // 最终混合出来两张256*256的局部atlas
     baseMap = Blend(baseMap0, baseMap1, baseMap2, baseMap3, weight);
     maskMap = Blend(maskMap0, maskMap1, maskMap2, maskMap3, weight);
 }

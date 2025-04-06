@@ -186,6 +186,8 @@ namespace NoOvertime.VirtualTexture
         {
             using (_deduplicateMarker.Auto())
             {
+                // 创建一个异步执行的job
+                // _deduplicateSet 负责去重；Context.Instance.ResolvedPageID 负责存放去重后的结果。
                 var deduplicateJob = new DeduplicateJob(_deduplicateSet, Context.Instance.ReadBackArray, Context.Instance.ResolvedPageID, Context.Instance.ImageInfo);
                 _jobHandle = deduplicateJob.Schedule();
                 _stage = Stage.SortPageID;
@@ -198,6 +200,8 @@ namespace NoOvertime.VirtualTexture
         {
             using (_sortPageIDMarker.Auto())
             {
+                // 对去重后的结果 按照某种规则进行排序（PackedPageIDComparer）
+                // 相对清晰的PageID会被排在前面
                 Context.Instance.ResolvedPageID.Sort(_pageIDComparer);
                 _renderingPagePass.StartRendering();
                 _renderingPagePass.enabled = true;
@@ -222,9 +226,18 @@ namespace NoOvertime.VirtualTexture
         [BurstCompile]
         private struct DeduplicateJob : IJob
         {
+            // 作用：
+            // _readBackArray是GPU回传的上一帧的结果，imageInfo是基于这一帧相机得出的要加载的
+            // 二者比对去重，即得到本帧需要加载的
+
             private NativeHashSet<uint> _deduplicateSet;
+
+            // 从 FeedbackPass 回读出来的内容
+            // 12bit 12bit: indirectTex XY偏移；8bit: indirectTex的size
             [ReadOnly] private readonly NativeArray<uint> _readBackArray;
             private NativeList<uint> _deduplicatedPageID;
+
+            // imageInfo：xy = indirect Tex XY偏移量；z=indirectTex的size
             [ReadOnly] private NativeHashSet<int3> _imageInfo;
 
             public DeduplicateJob(NativeHashSet<uint> deduplicateSet, NativeArray<uint> readBackArray, NativeList<uint> deduplicatedPageID, NativeHashSet<int3> imageInfo)
@@ -237,15 +250,27 @@ namespace NoOvertime.VirtualTexture
 
             public void Execute()
             {
-                _deduplicateSet.Clear();
-                _deduplicatedPageID.Clear();
-                foreach (var packedPageID in _readBackArray)
+                // _readBackArray packedPageID：
+                // z: 回读buffer gpu mip
+                // w: 回读buffer 存储其在 Virtual Image 下的Size 的log2。一个更方便的理解是，将其视作 max mip value
+
+                // imageInfo additionalPageID：
+                // z、w 存储的都是 indirectTex max mip value
+
+                _deduplicateSet.Clear(); // 去重
+                _deduplicatedPageID.Clear(); // 去重后 存储的结果
+
+                // 回读buffer中存储的page
+                // 回读buffer的pageID中包含实际的GPU mip，和max mip value
+                foreach (var packedPageID in _readBackArray) 
                 {
                     if (packedPageID == 0) continue;
                     _deduplicateSet.Add(packedPageID);
                 }
 
-                foreach (var imageInfo in _imageInfo)
+                // 遍历imageInfo，即当前帧需要的page
+                // 但要注意下 这玩意和上面的有点区别 它 是CPU数据，没有GPU mip，所以给了个和max mip value一样的值
+                foreach (var imageInfo in _imageInfo) 
                 {
                     var virtualImageSizeLog = math.ceillog2(imageInfo.z);
                     uint additionalPageID =
@@ -268,6 +293,9 @@ namespace NoOvertime.VirtualTexture
         {
             public int Compare(uint x, uint y)
             {
+                // w-z: indirect tex count - gpu mip（由于z<w，所以该值必然>0）
+                // w-z越大，表示indirectTex的max mip value越多，并且gpu mip越接近该等级
+                // 这里比较接近程度（即w-z），相对更接近max mip value的会被排在前面【为什么要这么设计？】
                 var key0 = Utility.UnpackPageID(x);
                 var key1 = Utility.UnpackPageID(y);
                 return (key0.w - key0.z) - (key1.w - key1.z);

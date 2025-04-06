@@ -9,18 +9,31 @@ using Object = UnityEngine.Object;
 
 namespace NoOvertime.VirtualTexture
 {
+    /// <summary>
+    /// 在 RVT 中，VirtualImageAtlas 相当于 IndirectTex 上大小灵活可变的纹理
+    /// </summary>
     public class VirtualImageAtlas : IDisposable
     {
-        private readonly int _atlasSize; // indirect texture的大小
-        private readonly int _pageSizeShift; // 1 << _pageSizeShift == _pageSize
+        // 整个indirect texture的大小 = 1024.
+        private readonly int _atlasSize; 
+
+        // 页的大小。1 << _pageSizeShift == _pageSize【谁的页？】
+        private readonly int _pageSizeShift; 
 
         private readonly bool[] _markAsUsed; // 记录atlas四叉树中的节点是否被占用
         private readonly byte[] _markChildAsUsed; // 记录atlas四叉树中的节点中是否有子节点被占用
+
+        // 最小的virtual image size。默认=2048px
         private readonly int _minimalVirtualImageSize;
 
+        // x = nodeIndex = 四叉树线性nodeId；
+        // yz = 当前四叉树page偏移量 = indirectTex像素偏移量；
+        // w = 当前四叉树节点等级对应的page大小=indirectTex像素大小；
         private readonly Stack<int4> _travelStack = new();
 
         // 记录atlas中所有image所在的节点index和x,z坐标以及imageSize
+        // int2 = sector 的坐标
+        // int4 = nodeIndex, x, z, size（注意这里在概念上 记录的是VirtualImageAtlas区域偏移量）
         private readonly Dictionary<int2, int4> _sector2ImageDictionary = new();
 
 #if UNITY_EDITOR && DEBUG_TERRAIN
@@ -29,7 +42,7 @@ namespace NoOvertime.VirtualTexture
         private readonly GameObject _imagePrefab;
 #endif
 
-        public VirtualImageAtlas(int atlasSize, int pageSize, int pageSizeShift, int minimalVirtualImageSize)
+        public VirtualImageAtlas(int atlasSize, int pageSize, int pageSizeShift, int minimalVirtualImageSize) // 1024, 256, 8, 2048
         {
             _atlasSize = atlasSize;
 #if UNITY_EDITOR && DEBUG_TERRAIN
@@ -46,23 +59,30 @@ namespace NoOvertime.VirtualTexture
 
             var canvasPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/SampleScene/Canvas.prefab");
             _canvas = (GameObject)UnityEditor.PrefabUtility.InstantiatePrefab(canvasPrefab);
-            _canvas.hideFlags = HideFlags.HideAndDontSave;
+            //_canvas.hideFlags = HideFlags.HideAndDontSave;
             _imagePrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/SampleScene/Image.prefab");
 #endif
             _pageSizeShift = pageSizeShift;
             _minimalVirtualImageSize = minimalVirtualImageSize;
 
+            // 计算四叉树节点的数量
             var nodeCount = 0;
             int currentSizeNodeCount = 1;
-            int currentNodeSize = atlasSize;
-            while (currentNodeSize > (minimalVirtualImageSize >> pageSizeShift))
+            int currentNodeSize = atlasSize; // 获取IndirectTexture的大小=1024.
+
+            // 将IndirectTex逐级四叉分割，直到分割到最小的VirtualImageSize大小
+            // 注：IndirectTex的基本单位是page，而VirtualImageSize的基本单位是texel，所以需要用pageSizeShift转换
+            while (currentNodeSize > (minimalVirtualImageSize >> pageSizeShift)) // 最小的VirtImage = 2048 >> 8 = 8 个 page
             {
-                nodeCount += currentSizeNodeCount;
-                currentNodeSize >>= 1;
-                currentSizeNodeCount <<= 2;
+                nodeCount += currentSizeNodeCount; // 统计这一层的节点数量
+                currentNodeSize >>= 1; // 大小减半
+                currentSizeNodeCount <<= 2; // 节点数量乘4
             }
 
+            // 按 page 记录 整个四叉树的父节点们的状态，共 5461 个
             _markChildAsUsed = new byte[nodeCount]; // 父节点标记用不到最小级别的image
+
+            // 按 page 记录 整个四叉树的所有节点（父+子节点）的状态，共 5461 + 16384 = 21845 个
             _markAsUsed = new bool[nodeCount + currentSizeNodeCount];
         }
 
@@ -79,11 +99,13 @@ namespace NoOvertime.VirtualTexture
 #endif
         }
 
-        public int4 GetImageInfo(int2 sector)
-        {
-            return _sector2ImageDictionary[sector];
-        }
-
+        /// <summary>
+        /// 在 Indirect Texture 中插入一个 Virtual Image
+        /// </summary>
+        /// <param name="sector">sector的位置。一个VirtualImage总是对应一个sector。</param>
+        /// <param name="virtualImageSize">VirtualImage的大小，单位为texel</param>
+        /// <param name="imageInfo">返回值，x = nodeIndex = 当前sector对应的四叉树线性nodeId；yz = 当前四叉树page偏移量 = 当前sector对应的indirectTex mip0中的像素偏移量；w=当前sector对应的indirectTex mip0中的像素大小</param>
+        /// <returns></returns>
         public bool InsertImage(in int2 sector, in int virtualImageSize, out int4 imageInfo)
         {
             if (virtualImageSize < _minimalVirtualImageSize)
@@ -95,44 +117,56 @@ namespace NoOvertime.VirtualTexture
                 return false;
             }
 
+            // VirtualImageSize换算成page大小，即indirectTexture中所占的像素大小
             var indirectSize = virtualImageSize >> _pageSizeShift;
+
+
             _travelStack.Clear();
-            // nodeIndex, x, z, size
-            _travelStack.Push(new int4(0, 0, 0, _atlasSize));
+            // 四叉树在概念上对标indirectTexture；这里首先Push根节点。
+            // x = nodeIndex = 四叉树线性nodeId
+            // yz = 当前四叉树page偏移量 = indirectTex像素偏移量
+            // w=当前四叉树节点等级对应的page大小=indirectTex像素大小
+            _travelStack.Push(new int4(0, 0, 0, _atlasSize)); 
+
+            // 下面的while负责：从四叉树中找出一个没有被占用的节点，并记录下来（记录到_sector2ImageDictionary）
             while (_travelStack.TryPop(out var currentNode))
             {
                 // 如果node被占用了, 那么node的子节点肯定也被占用了
                 if (_markAsUsed[currentNode.x]) continue;
-                // 四叉树遍历到的节点大于请求的indirectSize
+
+                // 如果节点范围比VirtualImage大，递归搜子节点
                 if (currentNode.w > indirectSize)
                 {
-                    int halfSize = currentNode.w >> 1;
-                    int childNodeIndex = currentNode.x << 2;
+                    int halfSize = currentNode.w >> 1; // 子节点，大小减半
+                    int childNodeIndex = currentNode.x << 2; // 子节点，index*4
                     _travelStack.Push(new int4(childNodeIndex + 4, currentNode.y + halfSize, currentNode.z + halfSize, halfSize));
                     _travelStack.Push(new int4(childNodeIndex + 3, currentNode.y, currentNode.z + halfSize, halfSize));
                     _travelStack.Push(new int4(childNodeIndex + 2, currentNode.y + halfSize, currentNode.z, halfSize));
                     _travelStack.Push(new int4(childNodeIndex + 1, currentNode.y, currentNode.z, halfSize));
                 }
-                else // 不可能遍历到小于indirectSize的节点
+                else 
                 {
-                    // 子节点里不能有节点被占用
+                    // 如果节点范围刚好等于VirtualImage，或者内部子节点是干净的（没有被使用过的）
                     if (virtualImageSize == _minimalVirtualImageSize || _markChildAsUsed[currentNode.x] == 0)
                     {
                         _markAsUsed[currentNode.x] = true; // 标记自身被占用
-                        int parent = currentNode.x >> 2; // 标记所有父节点中有子节点被占用加一
+                        int parent = currentNode.x >> 2; // 向上逐级通报所有父节点，子节点占用数+1
                         while (parent != 0)
                         {
                             _markChildAsUsed[parent]++;
                             parent >>= 2;
                         }
 
+                        // 最后正式分配节点。记录当前节点信息
                         _sector2ImageDictionary[sector] = currentNode;
                         imageInfo = currentNode;
-#if UNITY_EDITOR && DEBUG_TERRAIN
+
+#if UNITY_EDITOR && DEBUG_TERRAIN 
+                        // 调试模式下显示颜色
                         if (!_debugImage.TryGetValue(sector, out var instance))
                         {
                             instance = (GameObject) UnityEditor.PrefabUtility.InstantiatePrefab(_imagePrefab, _canvas.transform);
-                            instance.hideFlags = HideFlags.HideAndDontSave;
+                            //instance.hideFlags = HideFlags.HideAndDontSave;
                             _debugImage[sector] = instance;
                         }
 

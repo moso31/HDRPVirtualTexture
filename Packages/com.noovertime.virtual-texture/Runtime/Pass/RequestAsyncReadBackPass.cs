@@ -42,9 +42,11 @@ namespace NoOvertime.VirtualTexture
                     Debug.LogError("lizha @ wtf?");
                 }
                 var safetyHandle = AtomicSafetyHandle.Create();
-                NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref Context.Instance.ReadBackArray, safetyHandle);
+                NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref Context.Instance.ReadBackArray, safetyHandle); 
 #endif
                 ctx.cmd.DisableKeyword(Context.Instance.OutputPageIDTextureKeyword);
+
+                // 异步读取，从纹理（PageIDOutputTexture）读出来存到 ReadBackArray + 随后触发_callback
                 ctx.cmd.RequestAsyncReadbackIntoNativeArray(ref Context.Instance.ReadBackArray, Context.Instance.PageIDOutputTexture, 0, GraphicsFormat.R32_UInt, _callback);
             }
         }

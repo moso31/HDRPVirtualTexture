@@ -9,26 +9,35 @@ namespace NoOvertime.VirtualTexture
         public const int PageIDTextureDownscale = 8;
         public const int MaxDeduplicatedPageCount = 256;
         public const int ReadingBackTimeout = 8;
+
+        // 单个Sector的大小 = 64
         public const int SectorSizeShift = 6;
         public const int SectorSize = 1 << SectorSizeShift;
+
+        // 单个Page的大小，（也是IndirectTex上的texel对应的大小） = 256
         public const int PageSizeShift = 8;
         public const int PageSize = 1 << PageSizeShift;
         public const int BorderSize = 4;
         public const int PageSizeWithBorder = PageSize + 2 * BorderSize;
+
+        // 间接纹理的大小，1k * 1k
         public const int IndirectionTextureSize = 1024;
+
         public const int MinimalVirtualImageSize = 2048;
         public const float CameraPositionSqrDeltaThreshold = 4;
         public const int MaxTexelDensity = 1024;
-        public const int HighestResolution = SectorSize * MaxTexelDensity;
+        public const int HighestResolution = SectorSize * MaxTexelDensity; // 64 * 1024 = 65536
         public const float SwitchDistance = 64 * 64 * 1.5f;
         public const int MaxPreloadSector = 256;
         public const float SectorPreloadDistance = 6;
+
+        // 物理页，即最终存在GPU显存（TileTexture，TilePool）下的若干个Tile（Page）
         // 1080P下大约400个Page左右
         // 2K下大约700个Page左右
         // 4K下会超过1200个Page
         public const int MaxPhysicalPageCount = 1023;
-        public const int RenderingPagePerFrame = 16;
-        public const int UpdateIndirectionTexturePerFrame = 64;
+        public const int RenderingPagePerFrame = 16; // 一帧渲染的Page上限
+        public const int UpdateIndirectionTexturePerFrame = 64; // 一帧更新的IndirectTex数量上限
 
         public static readonly int ParamsID = Shader.PropertyToID("_params");
         // rendering physical page

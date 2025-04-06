@@ -12,11 +12,12 @@ float _FarBlendDistance;
 void TerrainLitShade(float2 uv, float3 positionRWS, inout TerrainLitSurfaceData surfaceData)
 {
     float4 baseMap, maskMap;
-    #if defined(_VIRTUAL_TEXTURE)
+    #if defined(_VIRTUAL_TEXTURE) // 如果用VT 那么走VT的逻辑
     float4 vtBaseMap, vtMaskMap;
-    SampleVT(positionRWS, vtBaseMap, vtMaskMap);
+    SampleVT(positionRWS, vtBaseMap, vtMaskMap); // 获得VT的baseMap和maskMap数据
     baseMap = vtBaseMap;
     maskMap = vtMaskMap;
+    // 到这里VT涉及到内容就大致结束了；后面怎么做基本上是HDRP的事情了
     #else
     float4 slot;
     float2 vertexPosX, vertexPosY, vertexPosZ, vertexPosW;
