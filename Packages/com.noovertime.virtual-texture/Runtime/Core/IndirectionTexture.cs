@@ -201,7 +201,7 @@ namespace NoOvertime.VirtualTexture
 
             // 遍历之前已有的各级mip，并将纹理数据迁移到新纹理上
             // 迁移完成后将老纹理置0
-            for (int mip = 0; mip <= mipCount; mip++)
+            for (int mip = 0; mip <= mipCount; mip++)   
             {
                 _paramsArray[0] = (uint)newImageInfo.w >> mip;
                 _paramsArray[2] = (uint)oldImageInfo.y >> (mip + mipDelta);
